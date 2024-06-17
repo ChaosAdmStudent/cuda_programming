@@ -1,12 +1,16 @@
 #include <torch/extension.h> 
+#include "utils.h"
 
 
-// This function calls a cuda extension 
+// This function calls a cuda extension  
 torch::Tensor trilinear_interpolation(
     torch::Tensor feats, 
     torch::Tensor point 
-){
-    return feats; 
+){ 
+    CHECK_INPUT(feats);  
+    CHECK_INPUT(point);
+
+    return trilinear_fw_cu(feats, point); 
 }
 
 // Providing a interface for python to call. Basically allowing python to call above function 
