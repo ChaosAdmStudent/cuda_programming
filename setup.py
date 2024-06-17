@@ -26,4 +26,8 @@ setup(
     cmdclass={
         'build_ext': BuildExtension
     }
-)
+) 
+
+# name: name of the package (example pytorch is called torch) 
+# ext_module: The code you want to build (sources) 
+# cmdclass tells we are BUILDING the code  
