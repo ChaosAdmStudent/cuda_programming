@@ -25,6 +25,10 @@
    9. * The output is created inside the cuda function as empty tensor which will be filled within the kernel function later.  
 
       * Before launching kernel, we specify the number of threads and blocks 
+
+   10. Define the computation inside cuda kernel function. 
+
+   11. It's a good idea to test output of kernel. This is done by writing the counterpart of this function in pytorch and compare outputs. 
    
    
 
@@ -88,7 +92,7 @@
 
       * The kernel NEVER returns anything. All operations are done in place. That's why we always provide an output tensor that is filled by the kernel computation. 
 
-      * The `.packed_accessor` helps convert the "tensor" type to a type that CUDA recognizes. Without it, it wouldn't know what `torch::Tensor feats` is.  
+      * The `.packed_accessor` helps convert the "tensor" type to a type that CUDA recognizes. Without it, it wouldn't know what `torch::Tensor feats` is.  It's helping us access the elements of the tensor. Almost analogous to indexing. 
 
       * The arguments of `packed_accessor` are: 
         * The first one sets the data type of the corresponding tensor. Because we used AT_DISPATCH_FLOATING_TYPES, we can just set this equal to `scalar_t` so that it automatically sets data type of the tensor to the corresponding detected floating data type (float32 or float64)  
@@ -97,7 +101,9 @@
 
         * The 3rd argument `RestrictPtrTraits` ensures that "feats" (or any other tensor) doesn't overlay with any other tensors.
 
-        * The 4th argument is the type used for indexing and offset computations. Here, we use `size_t` which is an unsigned integer type. It's used here because tensor indices and offsets can't be negative, and size_t can hold very large values  
+        * The 4th argument is the type used for indexing and offset computations. Here, we use `size_t` which is an unsigned integer type. It's used here because tensor indices and offsets can't be negative, and size_t can hold very large values. The `size_t` depends on the data type and goes hand-in-hand with `scalar_t`. If using a fixed data type like float, you can remove the 4th argument. If doing this, our cuda kernel would also naturally not have to be a template function and we can take out the `scalar_t` from the function call as well. 
+
+      All the inputs to this kernel were tensors which is why we used `packed_accessor` on all the inputs. For traditional data types, we can just pass those as is. 
 
 ## The interpolation example  
 
@@ -132,4 +138,37 @@
 
    The number of blocks for each dimension comes from this formula: 
 
-   `const dim3 blocks((N+threads.x-1)/threads.x, (F+threads.y-1)/threads.y);` 
+   `const dim3 blocks((N+threads.x-1)/threads.x, (F+threads.y-1)/threads.y);`  
+
+## CUDA Kernel Content 
+
+   ### About the function definition and arguments 
+
+   * Wrap the kernel around template to allow variable data types. 
+
+   * `__global__` is a required keyword for cuda kernels. It indicates that the kernel will be called by CPU and executed on GPU. 
+
+   * Some other keywords for functions in CUDA are `__host__`. This means that the function will be called and executed on the CPU. `__device__` means its called and executed on GPU. This keyword is used for functions that are called from within the kernel.  
+
+   * If the expected inputs are Tensors, their type signatures will have to be packed accessor. In torch that is present in `torch::PackedTensorAccessor`. The arguments of this accessor are the same as previously mentioned. 
+
+   ### About the function content 
+
+   * We make sure that the blocks cover all the output tensor shape. Now, each element of the output tensor is filled by the corresponding thread at that location. So, we need to know each element is computed by which thread in which block. Doing this in cuda is really simple: 
+   
+   ``` 
+   const int n = blockIdx.x * blockDim.x + threadIdx.x 
+   const int f = blockIdx.y * blockDim.y + threadIdx.y 
+   ``` 
+
+     * blockIdx is the block number  
+     * blockDim is the number of threads in the block. 
+     * threadIdx is the local thread id.   
+
+   * Hence, there are two steps: 
+
+     * Compute id for each thread 
+     * Exclude redundant threads from computation (Removing threads that don't overlap output tensor) 
+
+   * The code in the cuda kernel should be to compute interpolation for ONE point and ONE feature, i.e, one element for each parallel dimension. 
+  
