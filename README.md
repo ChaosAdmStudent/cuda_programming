@@ -1,5 +1,5 @@
 ## Instructions + Explanation
-   1. Open Cmd Pallete -> "C++: Edit JSON config". Add custom paths to IncludePath list. 
+   1. Open Cmd Pallete -> "C++: Edit JSON config". Add custom paths to IncludePath list. Change compiler to VS2019 cl.exe
 
    2. Write C++ file with function that has input/output types and calls cuda extension 
       
