@@ -31,6 +31,26 @@ def trilinear_interpolation(feats, points):
     
     return feats_interp
 
+# Pytorch wrap for fw and bw pass in trilinear interpolation
+class Trilinear_interpolation_cuda(torch.autograd.Function):
+    @staticmethod # ctx is the context object to save tensors for backward pass
+    def forward(ctx, feats, points):
+        feat_interp = cppcuda_tutorial.trilinear_interpolation_fw(feats, points)
+
+        ctx.save_for_backward(feats, points) # backprop has u,v,w which is extracted from points. feats is needed for redundant thread detection
+
+        return feat_interp
+
+    @staticmethod
+    def backward(ctx, dL_dfeat_interp):
+        feats, points = ctx.saved_tensors
+
+        dL_dfeats = cppcuda_tutorial.trilinear_interpolation_bw(dL_dfeat_interp.contiguous(), feats, points)
+
+        # We have to return as many values as we passed to forward (except ctx) 
+        # We assumed points are fixed, so dL_dpoints is None 
+        return dL_dfeats, None
+
 if __name__ == '__main__': 
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu' 
@@ -38,19 +58,37 @@ if __name__ == '__main__':
     N = 65536 
     F = 256 
 
-    feats = torch.rand(N,8,F).to(device) 
+    rand = torch.rand(N,8,F).to(device)  
+    feats = rand.clone().requires_grad_()  # Used for Pytorch 
+    feats2 = rand.clone().requires_grad_() # Used for CUDA
     points = torch.rand(N,3).to(device)*2 - 1
 
     # Checking time for CUDA 
     t = time.time() 
-    out_cuda = cppcuda_tutorial.trilinear_interpolation(feats, points)  
+    # We can't directly use forward function anymore and need to use the class instead
+    # out_cuda = cppcuda_tutorial.trilinear_interpolation_fw(feats2, points)     
+    out_cuda = Trilinear_interpolation_cuda.apply(feats2, points)
     torch.cuda.synchronize() 
-    print('CUDA time: ', time.time() - t)
+    print('CUDA fw time: ', time.time() - t)
     
     # Checking time for CPU 
     t = time.time()
     out_py = trilinear_interpolation(feats, points) 
     torch.cuda.synchronize() 
-    print('Pytorch time: ', time.time() - t)
+    print('Pytorch fw time: ', time.time() - t)
 
-    print(torch.allclose(out_cuda, out_py)) 
+    print('fw all close: ',torch.allclose(out_cuda, out_py))  
+
+    t = time.time() 
+    loss = out_py.sum() 
+    loss.backward() 
+    torch.cuda.synchronize() 
+    print('Pytorch bw time: ', time.time() - t)
+
+    t = time.time() 
+    loss2 = out_cuda.sum() 
+    loss2.backward()
+    torch.cuda.synchronize() 
+    print('CUDA bw time: ', time.time() - t) 
+
+    print('bw all close: ', torch.allclose(feats.grad, feats2.grad))

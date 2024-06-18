@@ -29,7 +29,8 @@
    10. Define the computation inside cuda kernel function. 
 
    11. It's a good idea to test output of kernel. This is done by writing the counterpart of this function in pytorch and compare outputs. 
-   
+
+   12. When implementing a forward + backward pass approach, wrap the forward and backward functions in a class which inherits from `torch.autograd.Function`. To use the forward method, use `class_name.apply()`. Using backward is like traditional pytorch: `.backward()`. 
    
 
 ## How CUDA Works 
@@ -171,4 +172,7 @@
      * Exclude redundant threads from computation (Removing threads that don't overlap output tensor) 
 
    * The code in the cuda kernel should be to compute interpolation for ONE point and ONE feature, i.e, one element for each parallel dimension. 
-  
+
+## Backward Pass Kernel 
+
+CUDA does not have autograd feature. All the actual math has to be written out by hand in CUDA kernels doing backpropagation. Without the backward function, we were able to call the CUDA function simply by invoking the forward method. However, to use both forward and backward functions from CUDA, we have to wrap the forward and backward functions with `torch.autograd.Function`
