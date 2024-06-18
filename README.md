@@ -1,36 +1,37 @@
 ## Instructions + Explanation
+   1. Open Cmd Pallete -> "C++: Edit JSON config". Add custom paths to IncludePath list. 
 
-   1. Write C++ file with function that has input/output types and calls cuda extension 
+   2. Write C++ file with function that has input/output types and calls cuda extension 
       
-   2. Write a bridge pybind module to define a function in python that will invoke the above function 
+   3. Write a bridge pybind module to define a function in python that will invoke the above function 
       
-   3. Build the above C++ file since C++ requires compiling and building before it can be called elsewhere. 
+   4. Build the above C++ file since C++ requires compiling and building before it can be called elsewhere. 
       1. We require `setup.py` in order to do this (Use template to write setup function) 
       2. Open terminal to current directory and write `pip install .` to build the C++ file 
       
-   4. Create another `test.py` file to test code. Remember to import torch before cppcuda_tutorial
+   5. Create another `test.py` file to test code. Remember to import torch before cppcuda_tutorial
    
-   5. Create the CUDA kernel `interpolation_kernel.cu` which has the actual C++ function that does the computation of the interpolation. 
+   6. Create the CUDA kernel `interpolation_kernel.cu` which has the actual C++ function that does the computation of the interpolation. 
 
-   6. In the C++ bridge code (`interpolation.cpp`), you need to include a header file that declares all the cuda functions we write and exist so that these functions can be called by the bridge code file.  
+   7. In the C++ bridge code (`interpolation.cpp`), you need to include a header file that declares all the cuda functions we write and exist so that these functions can be called by the bridge code file.  
    
       * A good practice to do this is creating a custom header file in `include` folder and writing all function definitions here (function definition has output type, function name and arguments)  
 
       * In bridge file, include the custom header file 
    
-   7. Now, we edit the `setup.py` file since we are not building pure C++ code anymore. So instead of importing `CppExtension`, we import `CudaExtension` 
+   8. Now, we edit the `setup.py` file since we are not building pure C++ code anymore. So instead of importing `CppExtension`, we import `CudaExtension` 
 
-   8. In the CUDA file in the function implementation, make sure there are 3 or less parallelizable dimensions. Now, create a `dim3` variable and set number of threads per dimension. (`const dim3 threads(16,16`) [ Since we want 256 total threads evenly distributed in 2 dimensions. sqrt(256) = 16]. Experiment with this according to balance of parallelizable dimensions (N and F here) and the computation complexity on different dimensions 
+   9. In the CUDA file in the function implementation, make sure there are 3 or less parallelizable dimensions. Now, create a `dim3` variable and set number of threads per dimension. (`const dim3 threads(16,16`) [ Since we want 256 total threads evenly distributed in 2 dimensions. sqrt(256) = 16]. Experiment with this according to balance of parallelizable dimensions (N and F here) and the computation complexity on different dimensions 
 
-   9. * The output is created inside the cuda function as empty tensor which will be filled within the kernel function later.  
+   10. * The output is created inside the cuda function as empty tensor which will be filled within the kernel function later.  
 
       * Before launching kernel, we specify the number of threads and blocks 
 
-   10. Define the computation inside cuda kernel function. 
+   11. Define the computation inside cuda kernel function. 
 
-   11. It's a good idea to test output of kernel. This is done by writing the counterpart of this function in pytorch and compare outputs. 
+   12. It's a good idea to test output of kernel. This is done by writing the counterpart of this function in pytorch and compare outputs. 
 
-   12. When implementing a forward + backward pass approach, wrap the forward and backward functions in a class which inherits from `torch.autograd.Function`. To use the forward method, use `class_name.apply()`. Using backward is like traditional pytorch: `.backward()`. 
+   13. When implementing a forward + backward pass approach, wrap the forward and backward functions in a class which inherits from `torch.autograd.Function`. To use the forward method, use `class_name.apply()`. Using backward is like traditional pytorch: `.backward()`. 
    
 
 ## How CUDA Works 
